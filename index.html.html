@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Ndjenja</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            max-width: 400px;
+            width: 100%;
+        }
+        h1, h2 {
+            text-align: center;
+            color: #333;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .mood-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .reason {
+            background-color: #e0e0e0;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin: 5px 0;
+        }
+        .reason.selected {
+            background-color: #4CAF50;
+            color: #fff;
+        }
+        #loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        #tasks-container {
+            margin-top: 20px;
+            display: none;
+        }
+        .task {
+            background-color: #e0e0e0;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .reasons-wrapper {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="page1">
+        <h1>Si ndiheni sot?</h1>
+        <label for="mood-slider">Zgjidhni nivelin tuaj të stresit:</label>
+        <input type="range" id="mood-slider" min="1" max="10" value="5" oninput="updateMoodLabel(this.value)">
+        <div class="mood-labels">
+            <span>Shumë i relaksuar</span>
+            <span style="text-align: center;">I moderuar</span>
+            <span style="float: right;">Shumë i stresuar</span>
+        </div>
+        <p>Vlerësimi juaj: <span id="mood-value">5</span></p>
+        <button onclick="showReasons()">Vazhdo</button>
+    </div>
+
+    <div class="container" id="page2" style="display: none;">
+        <h2>Pse ndiheni kështu?</h2>
+        <label for="reasons-container">Zgjidhni arsyet pse ndiheni kështu:</label>
+        <div class="reasons-wrapper">
+            <div id="reasons-container">
+                <!-- Reasons will be injected here by JavaScript -->
+            </div>
+        </div>
+        <div id="other-reason-container" style="display: none;">
+            <label for="other-reason">Tjetër:</label>
+            <input type="text" id="other-reason" placeholder="Shkruani arsyen tuaj">
+        </div>
+        <button onclick="previousPage()">Faqja e mëparshme</button>
+        <button onclick="nextPage()">Faqja tjetër</button>
+        <button onclick="submitForm()">Submit</button>
+    </div>
+
+    <div class="container" id="loading" style="display: none;">
+        <h2>Loading...</h2>
+    </div>
+
+    <div class="container" id="tasks-container" style="display: none;">
+        <h2>Udhëzime për të ndihmuar në gjendjen tuaj:</h2>
+        <div id="tasks">
+            <!-- Tasks will be injected here by JavaScript -->
+        </div>
+        <button onclick="resetForm()">Bëje testin përsëri</button>
+    </div>
+
+    <script>
+        const reasons = [
+            "Stresi i punës", "Çështjet familjare", "Probleme financiare", "Shqetësime shëndetësore", 
+            "Mungesa e gjumit", "Probleme në marrëdhënie", "Moti", "Vetmia",
+            "I mbingarkuar", "Mërzi", "Konflikti me miqtë", "Mungesa e ushtrimeve fizike",
+            "Dietë e dobët", "Shumë kohë para ekranit", "Mungesa e hobeve", "Lajme negative",
+            "Rrjetet sociale", "Probleme me menaxhimin e kohës", "Punët e shtëpisë", "Angazhimet shkollore",
+            "Presioni për të arritur sukses", "Faturat e papaguara", "Ndarja nga partneri", "Ngarkesa nga trafikimi",
+            "Vështirësi në marrëdhëniet me fëmijët", "Çështjet ligjore", "Ndryshimet në jetën personale",
+            "Tensionet ndërpersonale", "Konflikti në vendin e punës", "Problemet me shëndetin mendor", "Pritjet e larta personale",
+            "Mungesa e mbështetjes emocionale", "Ndjenja e pamjaftueshmërisë", "Konflikti kulturor", "Humbja e një të dashuri",
+            "Mungesa e pushimeve", "Frika nga e ardhmja", "Tjetër"
+        ];
+
+        const tasks = [
+            "Bëni një shëtitje të shkurtër", "Meditoni për 10 minuta", "Lexoni një libër", 
+            "Dëgjoni muzikën tuaj të preferuar", "Ushtroni për 30 minuta", 
+            "Telefononi një mik", "Shkruani në një ditar", "Gatuani një vakt të shëndetshëm", 
+            "Kaloni kohë me të dashurit tuaj", "Kufizoni kohën para ekranit",
+            "Shkoni për një vrap", "Luani një lojë bordi", "Pini një çaj qetësues", "Shkruani një letër falenderimi",
+            "Ndërmerrni një projekt të ri", "Vizitoni një park", "Bëni një dush të gjatë", "Shkruani për gjërat që ju bëjnë të lumtur",
+            "Meditoni mbi gjërat për të cilat jeni mirënjohës", "Lexoni një revistë", "Bëni joga", "Shkruani një poezi",
+            "Vizitoni një mik", "Përfundoni një punë që keni shtyrë", "Shikoni një film komedi", "Lëvizni orenditë në dhomën tuaj",
+            "Bëni një projekt arti", "Luani me një kafshë shtëpiake", "Shkoni për pazar", "Pastroni shtëpinë",
+            "Përpiquni të bëni diçka të re", "Shkruani objektivat tuaj për javën", "Shkruani një email për dikë që ju pëlqen",
+            "Bëni një masazh", "Shkoni për një shëtitje në natyrë", "Provoni një recetë të re", "Lexoni një blog",
+            "Shkruani një histori të shkurtër", "Bëni një album me fotografi", "Shkruani një plan për të ardhmen",
+            "Bëni një listë me muzikat tuaja të preferuara", "Vizitoni një muze", "Bëni një detoks të rrjeteve sociale",
+            "Kërkoni për një klasë të re për t'u regjistruar", "Shkoni për not", "Bëni një festë për një mik",
+            "Shikoni një dokumentar", "Këndoni këngën tuaj të preferuar", "Përdorni një ditë për veten tuaj"
+        ];
+
+        let currentPage = 0;
+        const itemsPerPage = 4;
+
+        function updateMoodLabel(value) {
+            const moodLabel = document.getElementById("mood-value");
+            moodLabel.textContent = value;
+        }
+
+        function showReasons() {
+            document.getElementById("page1").style.display = "none";
+            document.getElementById("page2").style.display = "block";
+            renderReasons();
+        }
+
+        function renderReasons() {
+            const reasonsContainer = document.getElementById("reasons-container");
+            reasonsContainer.innerHTML = "";
+            const start = currentPage * itemsPerPage;
+            const end = start + itemsPerPage;
+            const currentReasons = reasons.slice(start, end);
+
+            currentReasons.forEach(reason => {
+                if (reason === "Tjetër") return;  // Skip adding "Tjetër" for now
+                const reasonDiv = document.createElement("div");
+                reasonDiv.textContent = reason;
+                reasonDiv.className = "reason";
+                reasonDiv.onclick = function() {
+                    this.classList.toggle("selected");
+                };
+                reasonsContainer.appendChild(reasonDiv);
+            });
+
+            // Add "Tjetër" option at the end if it's on the current page
+            if (reasons.includes("Tjetër") && end >= reasons.length) {
+                const otherReasonDiv = document.createElement("div");
+                otherReasonDiv.textContent = "Tjetër";
+                otherReasonDiv.className = "reason";
+                otherReasonDiv.onclick = function() {
+                    this.classList.toggle("selected");
+                    document.getElementById("other-reason-container").style.display = this.classList.contains("selected") ? "block" : "none";
+                };
+                reasonsContainer.appendChild(otherReasonDiv);
+            }
+        }
+
+        function nextPage() {
+            if ((currentPage + 1) * itemsPerPage < reasons.length) {
+                currentPage++;
+                renderReasons();
+            }
+        }
+
+        function previousPage() {
+            if (currentPage > 0) {
+                currentPage--;
+                renderReasons();
+            }
+        }
+
+        function submitForm() {
+            const selectedReasons = Array.from(document.querySelectorAll(".reason.selected")).map(reason => reason.textContent);
+            const otherReason = document.getElementById("other-reason").value;
+
+            if (selectedReasons.length === 0) {
+                alert("Ju lutem zgjidhni të paktën një arsye për stresin tuaj.");
+                return;
+            }
+
+            if (selectedReasons.includes("Tjetër") && otherReason.trim() === "") {
+                alert("Ju lutem shkruani arsyen tuaj.");
+                return;
+            }
+
+            document.getElementById("page2").style.display = "none";
+            document.getElementById("loading").style.display = "block";
+
+            setTimeout(() => {
+                document.getElementById("loading").style.display = "none";
+                showTasks();
+            }, 5000); // Simulate 5 seconds of loading time
+        }
+
+        function showTasks() {
+            document.getElementById("tasks-container").style.display = "block";
+            const tasksContainer = document.getElementById("tasks");
+            tasksContainer.innerHTML = "";
+
+            // Randomly select 5 tasks
+            const selectedTasks = [];
+            while (selectedTasks.length < 5) {
+                const randomIndex = Math.floor(Math.random() * tasks.length);
+                if (!selectedTasks.includes(tasks[randomIndex])) {
+                    selectedTasks.push(tasks[randomIndex]);
+                }
+            }
+
+            selectedTasks.forEach((task, index) => {
+                tasksContainer.innerHTML += `<div class="task"><strong>Detyra ${index + 1}:</strong> ${task}</div>`;
+            });
+        }
+
+        function resetForm() {
+            document.getElementById("tasks-container").style.display = "none";
+            document.getElementById("page1").style.display = "block";
+            document.getElementById("mood-slider").value = 5;
+            updateMoodLabel(5);
+        }
+    </script>
+</body>
+</html>  
